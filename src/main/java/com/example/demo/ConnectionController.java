@@ -10,8 +10,13 @@ import java.net.URL;
 import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.example.properties.BulkheadCustomConfig;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -20,30 +25,56 @@ import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.retry.Retry;
 import io.vavr.control.Try;
 
+@Lazy
 @RestController
 public class ConnectionController {
 	
 	Logger logger = Logger.getLogger(ConnectionController.class);
 	
+	@Lazy
+	@Autowired
+	private CircuitBreakerCustomConfig cbcc;
+	
+	@Lazy
+	@Autowired
+	//private BulkheadCustomConfig bhcc;
+	
 	CircuitBreaker cb = CircuitBreaker.ofDefaults("connect");
+	//CircuitBreaker cb = CircuitBreaker.of("connect", cbcc.getCbConfig());
 	Bulkhead bh = Bulkhead.ofDefaults("connect");
 	RateLimiter rl = RateLimiter.ofDefaults("connect");
 	Retry rt = Retry.ofDefaults("connect");
 
+	@Value("${test.test}")
+	private String test;
+	
+	@Value("${circuitBreaker.failureRateThreshold}")
+	private String cbfrt;
+	
+	@Value("${circuitBreaker.waitDurationInOpenState}")
+	private String cbwfios;
+	
 	@RequestMapping("/connect")
 	public String connection() {
 		
 		Callable<String> callable = () -> makeConnection();
 		
 		Callable<String> decoratedCallable = Decorators.ofCallable(callable)
-				.withCircuitBreaker(cb)
+				.withCircuitBreaker(cbcc.getCb())
 				.withBulkhead(bh)
 				.withRateLimiter(rl)
 				.withRetry(rt)
 				.decorate();
 		
+		
+		//logger.trace("bulkhead: " + bhcc.getMaxConcurrentCalls());
+		logger.trace("test: " + test);
+		logger.trace("cbfrt: " + Long.parseLong(cbfrt));
+		logger.trace("cbwfios: " + Long.parseLong(cbwfios));
+		logger.trace("failure rate threshold: " + cbcc.getFailureRateThreshold());
+		
 		Try<String> result = Try.ofCallable(decoratedCallable);
-		return result.get();
+		return "this is the front end app: " + result.get();
 				
 //		try {
 //			return makeConnection();
@@ -85,7 +116,7 @@ public class ConnectionController {
 			e.printStackTrace();
 		}
 
-		logger.trace("producer output: " + inputLine);
+		//logger.trace("producer output: " + inputLine);
 		return inputLine;
 	}
 }
