@@ -21,16 +21,16 @@ import io.github.resilience4j.retry.Retry;
 import io.vavr.control.Try;
 
 @RestController
-public class ConnectionController {
+public class ConnectionOwnerList {
 	
-	Logger logger = Logger.getLogger(ConnectionController.class);
+	Logger logger = Logger.getLogger(ConnectionOwnerList.class);
 	
 	CircuitBreaker cb = CircuitBreaker.ofDefaults("connect");
 	Bulkhead bh = Bulkhead.ofDefaults("connect");
 	RateLimiter rl = RateLimiter.ofDefaults("connect");
 	Retry rt = Retry.ofDefaults("connect");
 
-	@RequestMapping("/")
+	@RequestMapping("/owners/find")
 	public String connection() {
 		
 		Callable<String> callable = () -> makeConnection();
@@ -50,7 +50,7 @@ public class ConnectionController {
 	private String makeConnection() throws ConnectException {
 
 		String inputLine = "accessProducer did not work";
-		try {URL url = new URL("http://localhost:8082");
+		try {URL url = new URL("http://localhost:8082/owners/find");
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
 
