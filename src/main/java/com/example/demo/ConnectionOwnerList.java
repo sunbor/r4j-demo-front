@@ -10,13 +10,8 @@ import java.net.URL;
 import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.example.properties.BulkheadCustomConfig;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -25,75 +20,37 @@ import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.retry.Retry;
 import io.vavr.control.Try;
 
-@Lazy
 @RestController
-public class ConnectionController {
+public class ConnectionOwnerList {
 	
-	Logger logger = Logger.getLogger(ConnectionController.class);
-	
-	@Lazy
-	@Autowired
-	private CircuitBreakerCustomConfig cbcc;
-	
-	@Lazy
-	@Autowired
-	//private BulkheadCustomConfig bhcc;
+	Logger logger = Logger.getLogger(ConnectionOwnerList.class);
 	
 	CircuitBreaker cb = CircuitBreaker.ofDefaults("connect");
-	//CircuitBreaker cb = CircuitBreaker.of("connect", cbcc.getCbConfig());
 	Bulkhead bh = Bulkhead.ofDefaults("connect");
 	RateLimiter rl = RateLimiter.ofDefaults("connect");
 	Retry rt = Retry.ofDefaults("connect");
 
-
-	@Value("${test.test}")
-	private String test;
-	
-	@Value("${circuitBreaker.failureRateThreshold}")
-	private String cbfrt;
-	
-	@Value("${circuitBreaker.waitDurationInOpenState}")
-	private String cbwfios;
-	
-	@RequestMapping("/connect")
-
+	@RequestMapping("/owners/find")
 	public String connection() {
 		
 		Callable<String> callable = () -> makeConnection();
 		
 		Callable<String> decoratedCallable = Decorators.ofCallable(callable)
-				.withCircuitBreaker(cbcc.getCb())
+				.withCircuitBreaker(cb)
 				.withBulkhead(bh)
 				.withRateLimiter(rl)
 				.withRetry(rt)
 				.decorate();
 		
-		
-		//logger.trace("bulkhead: " + bhcc.getMaxConcurrentCalls());
-		logger.trace("test: " + test);
-		logger.trace("cbfrt: " + Long.parseLong(cbfrt));
-		logger.trace("cbwfios: " + Long.parseLong(cbwfios));
-		logger.trace("failure rate threshold: " + cbcc.getFailureRateThreshold());
-		
 		Try<String> result = Try.ofCallable(decoratedCallable);
-
-		return "this is the front end app: " + result.get();
-				
-//		try {
-//			return makeConnection();
-//		} catch (ConnectException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//			return "connection failed";
-//		}
-		
+		return result.get();
 	}
 	
 	// accesses the other application
 	private String makeConnection() throws ConnectException {
 
 		String inputLine = "accessProducer did not work";
-		try {URL url = new URL("http://localhost:8082");
+		try {URL url = new URL("http://localhost:8082/owners/find");
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
 
@@ -119,7 +76,7 @@ public class ConnectionController {
 			e.printStackTrace();
 		}
 
-		//logger.trace("producer output: " + inputLine);
+		logger.trace("producer output: " + inputLine);
 		return inputLine;
 	}
 }
