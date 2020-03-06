@@ -1,17 +1,22 @@
 package com.example.demo;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.ConnectException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
+import java.awt.Graphics;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.net.URL;
 import java.util.concurrent.Callable;
 
+import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +35,9 @@ public class ConnectionController {
 
 	Logger logger = Logger.getLogger(ConnectionController.class);
 
+	// one instance, reuse
+	private final CloseableHttpClient httpClient = HttpClients.createDefault();
+
 	CircuitBreaker cb = CircuitBreaker.ofDefaults("connect");
 	Bulkhead bh = Bulkhead.ofDefaults("connect");
 	RateLimiter rl = RateLimiter.ofDefaults("connect");
@@ -41,96 +49,57 @@ public class ConnectionController {
 	}
 
 	@RequestMapping(value = { "**" })
-	public String connection(HttpServletRequest req, HttpServletResponse resp) {
+	public Object connection(HttpServletRequest req, HttpServletResponse resp) {
+		if (req.getRequestURL().toString().contains(".png")) {
+			Callable<Object> callable = () -> graphics(req, resp, "8082");
 
-		Callable<String> callable = () -> makeConnection(req, resp);
+			Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
+					.withRateLimiter(rl).withRetry(rt).decorate();
 
-		Callable<String> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
+			Try<Object> result = Try.ofCallable(decoratedCallable);
+			return result.get();
+		}
+
+		Callable<Object> callable = () -> makeConnection(req, resp, "8082");
+
+		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
 				.withRateLimiter(rl).withRetry(rt).decorate();
 
-		Try<String> result = Try.ofCallable(decoratedCallable);
+		Try<Object> result = Try.ofCallable(decoratedCallable);
 		return result.get();
 
 	}
 
 	// accesses the other application
-	private String makeConnection(HttpServletRequest req, HttpServletResponse resp) throws ConnectException {
-		String inputLine = "accessProducer did not work";
+	private String makeConnection(HttpServletRequest req, HttpServletResponse resp, String port) {
 
-		/*
-		 * Redirecting: failed because it steps out of circuit breaker and changes URL
-		 * Also cannot implement a fallback due to IllegalStateException try {
-		 * resp.sendRedirect(req.getRequestURL().toString().replaceFirst("8081",
-		 * "8082")); } catch (IOException e1) { System.out.println("IOException"); }
-		 */
+		HttpGet request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port));
 
-		/*
-		 * Forwarding: failed because URL didn't start with a / Also probably has
-		 * problem where IllegalStateException occurs like redirect
-		 * 
-		 * RequestDispatcher dispatcher = req.getServletContext()
-		 * .getRequestDispatcher(req.getRequestURL().toString().replaceFirst("8081",
-		 * "8082")); try { dispatcher.include(req, resp); } catch (ServletException |
-		 * IOException e1) { e1.printStackTrace(); }
-		 */
+		try (CloseableHttpResponse response = httpClient.execute(request)) {
 
-		/*
-		 * Recreating source as String and then compiling: Failed because it cannot
-		 * compile images and icons Also doesn't import js functionalities
-		 * unfortunately, it's the best choice so far
-		 */
-		try {
-			URL url = new URL(req.getRequestURL().toString().replaceFirst("8081", "8082"));
-			System.out.println(req.getRequestURL().toString().replaceFirst("8081", "8082"));
-			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-			conn.setRequestMethod(req.getMethod());
+			// Get HttpResponse Status
+			System.out.println(response.getStatusLine().toString());
 
-			BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+			HttpEntity entity = response.getEntity();
+			Header headers = entity.getContentType();
+			System.out.println(headers);
 
-			StringBuffer content = new StringBuffer();
-			while ((inputLine = in.readLine()) != null) {
-				content.append(inputLine);
+			if (entity != null) {
+				String result = EntityUtils.toString(entity);
+				return result;
 			}
-			inputLine = content.toString();
-			in.close();
-		} catch (MalformedURLException e) {
-			logger.error("url format error while trying to connect to producer");
-			e.printStackTrace();
-		} catch (ConnectException e) {
-			inputLine = Fallback(req, resp);
-			logger.error("failed to connect to producer, entering fallback");
-		} catch (IOException e) {
-			logger.error("ioexception while trying to connect to producer");
+		} catch (Exception e) {
+			makeConnection(req, resp, Integer.toString(Integer.parseInt(port) + 1));
 			e.printStackTrace();
 		}
-
-		return inputLine;
+		return null;
 	}
 
-	private String Fallback(HttpServletRequest req, HttpServletResponse resp) {
-		String inputLine = "accessProducer did not work";
-		URL url;
-		try {
-			url = new URL(req.getRequestURL().toString().replaceFirst("8081", "8083"));
+	private Graphics graphics(HttpServletRequest req, HttpServletResponse resp, String port) throws Exception {
+		System.out.println("called");
+		BufferedImage image = ImageIO.read(new URL(req.getRequestURL().toString().replaceFirst("8081", port)));
 
-			System.out.println(req.getRequestURL().toString().replaceFirst("8081", "8083"));
-			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-			conn.setRequestMethod(req.getMethod());
-
-			BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-
-			StringBuffer content = new StringBuffer();
-			while ((inputLine = in.readLine()) != null) {
-				content.append(inputLine);
-			}
-			inputLine = content.toString();
-			in.close();
-		} catch (MalformedURLException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-		return inputLine;
+		ImageIO.write(image, "png", new File("Image.png"));
+		return null;
 	}
 }

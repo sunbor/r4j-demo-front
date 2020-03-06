@@ -1,8 +1,11 @@
 server:
   port : 8081
-
-blog:
+  
+  
+config:
   primary:
-    endpoint: "http://localhost:8082"
+    endpoint: "http://localhost:8080"
   secondary:
-    endpoint: "http://localhost:8083"
+    endpoint: "http://localhost:8090"
+  
+  
