@@ -16,14 +16,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.properties.BulkheadCustomConfig;
-
 import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.decorators.Decorators;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.retry.Retry;
-import io.vavr.control.Try;
 
 @Lazy
 @RestController
@@ -31,16 +29,18 @@ public class ConnectionController {
 	
 	Logger logger = Logger.getLogger(ConnectionController.class);
 	
-	@Lazy
-	@Autowired
-	private CircuitBreakerCustomConfig cbcc;
+//	@Lazy
+//	@Autowired
+//	private CircuitBreakerCustomConfig cbcc;
 	
-	@Lazy
-	@Autowired
+	//@Lazy
+	//@Autowired
 	//private BulkheadCustomConfig bhcc;
 	
-	CircuitBreaker cb = CircuitBreaker.ofDefaults("connect");
-	//CircuitBreaker cb = CircuitBreaker.of("connect", cbcc.getCbConfig());
+	@Lazy
+	@Autowired
+	CircuitBreaker cb;
+	
 	Bulkhead bh = Bulkhead.ofDefaults("connect");
 	RateLimiter rl = RateLimiter.ofDefaults("connect");
 	Retry rt = Retry.ofDefaults("connect");
@@ -62,38 +62,56 @@ public class ConnectionController {
 		Callable<String> callable = () -> makeConnection();
 		
 		Callable<String> decoratedCallable = Decorators.ofCallable(callable)
-				.withCircuitBreaker(cbcc.getCb())
-				.withBulkhead(bh)
-				.withRateLimiter(rl)
-				.withRetry(rt)
+				.withCircuitBreaker(cb)
+//				.withCircuitBreaker(cbcc.getCb())
+//				.withBulkhead(bh)
+//				.withRateLimiter(rl)
+//				.withRetry(rt)
 				.decorate();
 		
+//		cbcc.getCb().getEventPublisher()
+//			.onSuccess(event -> logger.trace("circuit breaker successful call"))
+//			.onError(event -> logger.trace("circuit breaker error"))
+//			.onIgnoredError(event -> logger.trace("ignored event, not completely sure what this is"))
+//			.onReset(event -> logger.trace("circuit breaker reset"))
+//			.onStateTransition(event -> logger.trace("circuit breaker state transition occurred"));
+		
+//		cbcc.getCb().getEventPublisher().onEvent(event -> logger.info("event occurred: " + event.getClass()));
+					
 		
 		//logger.trace("bulkhead: " + bhcc.getMaxConcurrentCalls());
-		logger.trace("test: " + test);
-		logger.trace("cbfrt: " + Long.parseLong(cbfrt));
-		logger.trace("cbwfios: " + Long.parseLong(cbwfios));
-		logger.trace("failure rate threshold: " + cbcc.getFailureRateThreshold());
-		
-		Try<String> result = Try.ofCallable(decoratedCallable);
+//		logger.trace("test: " + test);
+//		logger.trace("cbfrt: " + Long.parseLong(cbfrt));
+//		logger.trace("cbwfios: " + Long.parseLong(cbwfios));
+//		logger.trace("failure rate threshold: " + cbcc.getFailureRateThreshold());
 
-		return "this is the front end app: " + result.get();
-				
-//		try {
-//			return makeConnection();
-//		} catch (ConnectException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//			return "connection failed";
-//		}
+		String result = "this FAILED";
+		try {
+			result = decoratedCallable.call();
+		}
+		catch(ConnectException e) {
+			logger.error("connection failed, from inside try catch");
+		}
+		catch(CallNotPermittedException e) {
+			logger.error("circuit breaker opened");
+		}
+		catch(Exception e) {
+			logger.error("some other exception occurred");
+			e.printStackTrace();
+		}
+		return "this is the front end app: " + result;
 		
+//		Try<String> result = Try.ofCallable(decoratedCallable).recover(throwable -> "Hello from Recovery");
+//
+//		return result.get();
+								
 	}
 	
 	// accesses the other application
 	private String makeConnection() throws ConnectException {
 
 		String inputLine = "accessProducer did not work";
-		try {URL url = new URL("http://localhost:8082");
+		try {URL url = new URL("http://localhost:8082/test");
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
 
