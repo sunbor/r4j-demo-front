@@ -1,0 +1,8 @@
+server:
+  port : 8081
+
+blog:
+  primary:
+    endpoint: "http://localhost:8082"
+  secondary:
+    endpoint: "http://localhost:8083"
