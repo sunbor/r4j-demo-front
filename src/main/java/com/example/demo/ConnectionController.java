@@ -2,7 +2,9 @@ package com.example.demo;
 
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
-import java.io.File;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.net.URL;
 import java.util.concurrent.Callable;
 
@@ -18,6 +20,8 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
+import org.apache.tomcat.util.http.fileupload.IOUtils;
+import org.springframework.http.MediaType;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,24 +54,18 @@ public class ConnectionController {
 
 	@RequestMapping(value = { "**" })
 	public Object connection(HttpServletRequest req, HttpServletResponse resp) {
+		Callable<Object> callable = null;
 		if (req.getRequestURL().toString().contains(".png")) {
-			Callable<Object> callable = () -> graphics(req, resp, "8082");
-
-			Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
-					.withRateLimiter(rl).withRetry(rt).decorate();
-
-			Try<Object> result = Try.ofCallable(decoratedCallable);
-			return result.get();
+			callable = () -> graphics(req, resp, "8082");
+		} else {
+			callable = () -> makeConnection(req, resp, "8082");
 		}
-
-		Callable<Object> callable = () -> makeConnection(req, resp, "8082");
 
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
 				.withRateLimiter(rl).withRetry(rt).decorate();
 
 		Try<Object> result = Try.ofCallable(decoratedCallable);
 		return result.get();
-
 	}
 
 	// accesses the other application
@@ -96,10 +94,15 @@ public class ConnectionController {
 	}
 
 	private Graphics graphics(HttpServletRequest req, HttpServletResponse resp, String port) throws Exception {
-		System.out.println("called");
-		BufferedImage image = ImageIO.read(new URL(req.getRequestURL().toString().replaceFirst("8081", port)));
 
-		ImageIO.write(image, "png", new File("Image.png"));
+		BufferedImage image = ImageIO.read(new URL(req.getRequestURL().toString().replaceFirst("8081", port)));
+		ByteArrayOutputStream os = new ByteArrayOutputStream();
+		ImageIO.write(image, "png", os);
+		InputStream is = new ByteArrayInputStream(os.toByteArray());
+
+		resp.setContentType(MediaType.IMAGE_PNG_VALUE);
+		IOUtils.copy(is, resp.getOutputStream());
+
 		return null;
 	}
 }
