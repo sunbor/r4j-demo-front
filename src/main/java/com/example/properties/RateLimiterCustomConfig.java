@@ -13,44 +13,46 @@ import io.github.resilience4j.ratelimiter.RateLimiterConfig;
 @ConfigurationProperties(prefix = "rate-limiter")
 public class RateLimiterCustomConfig {
 
-	private String limitRefreshPeriod;
-	private String limitForPeriod;
-	private String timeoutDuration;
+	private Duration limitRefreshPeriod;
+	private int limitForPeriod;
+	private Duration timeoutDuration;
 	
 	@Bean
 	@ConfigurationProperties(prefix = "rate-limiter")
 	public RateLimiter getRl() {
 		RateLimiterConfig rlConfig = RateLimiterConfig.custom()
-				.limitRefreshPeriod(Duration.ofMillis(Long.parseLong(limitRefreshPeriod)))
-				.limitForPeriod(Integer.parseInt(limitForPeriod))
-				.timeoutDuration(Duration.ofMillis(Long.parseLong(timeoutDuration)))
+				.limitRefreshPeriod(limitRefreshPeriod)
+				.limitForPeriod(limitForPeriod)
+				.timeoutDuration(timeoutDuration)
 				.build();
 		return RateLimiter.of("connectrl", rlConfig);
 	}
 
-	public String getLimitRefreshPeriod() {
+	public Duration getLimitRefreshPeriod() {
 		return limitRefreshPeriod;
 	}
 
-	public void setLimitRefreshPeriod(String limitRefreshPeriod) {
+	public void setLimitRefreshPeriod(Duration limitRefreshPeriod) {
 		this.limitRefreshPeriod = limitRefreshPeriod;
 	}
 
-	public String getLimitForPeriod() {
+	public int getLimitForPeriod() {
 		return limitForPeriod;
 	}
 
-	public void setLimitForPeriod(String limitForPeriod) {
+	public void setLimitForPeriod(int limitForPeriod) {
 		this.limitForPeriod = limitForPeriod;
 	}
 
-	public String getTimeoutDuration() {
+	public Duration getTimeoutDuration() {
 		return timeoutDuration;
 	}
 
-	public void setTimeoutDuration(String timeoutDuration) {
+	public void setTimeoutDuration(Duration timeoutDuration) {
 		this.timeoutDuration = timeoutDuration;
 	}
+
+
 	
 	
 }

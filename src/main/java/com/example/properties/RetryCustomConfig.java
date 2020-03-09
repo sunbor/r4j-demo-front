@@ -13,34 +13,35 @@ import io.github.resilience4j.retry.RetryConfig;
 @ConfigurationProperties(prefix = "retry")
 public class RetryCustomConfig {
 	
-	private String maxAttempts;
-	private String waitDuration;
+	private int maxAttempts;
+	private Duration waitDuration;
 	
 	@Bean
 	@ConfigurationProperties(prefix = "retry")
 	public Retry getRt() {
 		RetryConfig rtConfig = RetryConfig.custom()
-				.maxAttempts(Integer.parseInt(maxAttempts))
-				.waitDuration(Duration.ofMillis(Long.parseLong(waitDuration)))
+				.maxAttempts(maxAttempts)
+				.waitDuration(waitDuration)
 				.build();
 		return Retry.of("connectrt", rtConfig);
 	}
 
-	public String getMaxAttempts() {
+	public int getMaxAttempts() {
 		return maxAttempts;
 	}
 
-	public void setMaxAttempts(String maxAttempts) {
+	public void setMaxAttempts(int maxAttempts) {
 		this.maxAttempts = maxAttempts;
 	}
 
-	public String getWaitDuration() {
+	public Duration getWaitDuration() {
 		return waitDuration;
 	}
 
-	public void setWaitDuration(String waitDuration) {
+	public void setWaitDuration(Duration waitDuration) {
 		this.waitDuration = waitDuration;
 	}
+
 	
 	
 

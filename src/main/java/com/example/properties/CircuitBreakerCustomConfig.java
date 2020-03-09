@@ -23,14 +23,14 @@ public class CircuitBreakerCustomConfig {
 //			circuitBreaker.waitDurationInOpenState=5000
 			
 //	@Value("${circuitBreaker.failureRateThreshold}")
-	private String failureRateThreshold;
+	private float failureRateThreshold;
 	
 //	@Value("${circuitBreaker.slidingWindowSize}")
-	private String slidingWindowSize;
+	private int slidingWindowSize;
 	
 //	@Value("${circuitBreaker.waitDurationInOpenState}")
-	private String waitDurationInOpenState;
-
+	private Duration waitDurationInOpenState;
+	
 
 	//public final CircuitBreakerConfig cbConfig;
 	
@@ -39,41 +39,49 @@ public class CircuitBreakerCustomConfig {
 //			.slidingWindowSize(Integer.parseInt(slidingWindowSize))
 //			.waitDurationInOpenState(Duration.ofMillis(Long.parseLong(waitDurationInOpenState)))
 //			.build();
-
+	
 	@Bean
 	@ConfigurationProperties(prefix = "circuit-breaker")
 	public CircuitBreaker getCb() {
 		CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
-				.failureRateThreshold(Long.parseLong(failureRateThreshold))
-				.slidingWindowSize(Integer.parseInt(slidingWindowSize))
-				.waitDurationInOpenState(Duration.ofMillis(Long.parseLong(waitDurationInOpenState)))
+				.failureRateThreshold(failureRateThreshold)
+				.slidingWindowSize(slidingWindowSize)
+				.waitDurationInOpenState(waitDurationInOpenState)
 				.build();
 		return CircuitBreaker.of("connectcb", cbConfig);
 	}
 
-	public String getFailureRateThreshold() {
+
+	public float getFailureRateThreshold() {
 		return failureRateThreshold;
 	}
 
-	public void setFailureRateThreshold(String failureRateThreshold) {
+
+	public void setFailureRateThreshold(float failureRateThreshold) {
 		this.failureRateThreshold = failureRateThreshold;
 	}
 
-	public String getSlidingWindowSize() {
+
+	public int getSlidingWindowSize() {
 		return slidingWindowSize;
 	}
 
-	public void setSlidingWindowSize(String slidingWindowSize) {
+
+	public void setSlidingWindowSize(int slidingWindowSize) {
 		this.slidingWindowSize = slidingWindowSize;
 	}
 
-	public String getWaitDurationInOpenState() {
+
+	public Duration getWaitDurationInOpenState() {
 		return waitDurationInOpenState;
 	}
 
-	public void setWaitDurationInOpenState(String waitDurationInOpenState) {
+
+	public void setWaitDurationInOpenState(Duration waitDurationInOpenState) {
 		this.waitDurationInOpenState = waitDurationInOpenState;
 	}
+
+
 
 
 	

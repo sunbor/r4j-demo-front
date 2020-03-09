@@ -19,20 +19,9 @@ import io.github.resilience4j.bulkhead.BulkheadConfig;
 @ConfigurationProperties(prefix = "bulkhead")
 public class BulkheadCustomConfig {
 
-	private String maxConcurrentCalls;
-	private String maxWaitDuration;
-	public String getMaxConcurrentCalls() {
-		return maxConcurrentCalls;
-	}
-	public void setMaxConcurrentCalls(String maxConcurrentCalls) {
-		this.maxConcurrentCalls = maxConcurrentCalls;
-	}
-	public String getMaxWaitDuration() {
-		return maxWaitDuration;
-	}
-	public void setMaxWaitDuration(String maxWaitDuration) {
-		this.maxWaitDuration = maxWaitDuration;
-	}
+	private int maxConcurrentCalls;
+	private Duration maxWaitDuration;
+
 	
 //	@RequestMapping("/bh")
 //	public String bhPath() {
@@ -54,19 +43,34 @@ public class BulkheadCustomConfig {
 //	        return new Item();
 //	    }
 //	}
-	@Bean
-	@ConfigurationProperties(prefix = "bulkhead")
-	public BulkheadTestClass bhTest() {
-		BulkheadTestClass bhTest = new BulkheadTestClass(maxConcurrentCalls, maxWaitDuration);
-		return bhTest;
-	}
+
 	
+	public int getMaxConcurrentCalls() {
+		return maxConcurrentCalls;
+	}
+
+
+	public void setMaxConcurrentCalls(int maxConcurrentCalls) {
+		this.maxConcurrentCalls = maxConcurrentCalls;
+	}
+
+
+	public Duration getMaxWaitDuration() {
+		return maxWaitDuration;
+	}
+
+
+	public void setMaxWaitDuration(Duration maxWaitDuration) {
+		this.maxWaitDuration = maxWaitDuration;
+	}
+
+
 	@Bean
 	@ConfigurationProperties(prefix = "bulkhead")
 	public Bulkhead getBulkhead() {
 		BulkheadConfig bhConfig = BulkheadConfig.custom()
-				.maxConcurrentCalls(Integer.parseInt(maxConcurrentCalls))
-				.maxWaitDuration(Duration.ofMillis(Long.parseLong(maxWaitDuration)))
+				.maxConcurrentCalls(maxConcurrentCalls)
+				.maxWaitDuration(maxWaitDuration)
 				.build();
 		return Bulkhead.of("connectbh", bhConfig);
 	}

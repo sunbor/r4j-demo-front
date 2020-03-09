@@ -37,11 +37,7 @@ public class ConnectionController {
 //	@Lazy
 //	@Autowired
 //	private BulkheadCustomConfig bhcc;
-	
-	@Lazy
-	@Autowired
-	private BulkheadTestClass bhTest;
-	
+		
 	@Lazy
 	@Autowired
 	CircuitBreaker cb;
@@ -97,7 +93,6 @@ public class ConnectionController {
 //		logger.trace("cbfrt: " + Long.parseLong(cbfrt));
 //		logger.trace("cbwfios: " + Long.parseLong(cbwfios));
 //		logger.trace("failure rate threshold: " + cbcc.getFailureRateThreshold());
-		logger.trace("bulkhead: " + bhTest.getTest1());
 
 		String result = "this FAILED";
 		try {
