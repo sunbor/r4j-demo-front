@@ -1,0 +1,11 @@
+server:
+  port : 8081
+  
+  
+config:
+  primary:
+    endpoint: "http://localhost:8080"
+  secondary:
+    endpoint: "http://localhost:8090"
+  
+  

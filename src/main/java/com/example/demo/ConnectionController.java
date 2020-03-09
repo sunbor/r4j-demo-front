@@ -1,20 +1,37 @@
 package com.example.demo;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.ConnectException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
+import java.awt.Graphics;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.net.URL;
 import java.util.concurrent.Callable;
 
+import javax.imageio.ImageIO;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
+
+import org.apache.tomcat.util.http.fileupload.IOUtils;
+import org.springframework.http.MediaType;
+import org.springframework.ui.ModelMap;
+
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.ModelAndView;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
@@ -27,17 +44,13 @@ import io.github.resilience4j.retry.Retry;
 @RestController
 
 public class ConnectionController {
-	
+
 	Logger logger = Logger.getLogger(ConnectionController.class);
-	
-//	@Lazy
-//	@Autowired
-//	private CircuitBreakerCustomConfig cbcc;
-	
-//	@Lazy
-//	@Autowired
-//	private BulkheadCustomConfig bhcc;
-		
+
+
+	// one instance, reuse
+	private final CloseableHttpClient httpClient = HttpClients.createDefault();
+
 	@Lazy
 	@Autowired
 	CircuitBreaker cb;
@@ -54,99 +67,67 @@ public class ConnectionController {
 	@Autowired
 	Retry rt;
 
-
-	@Value("${test.test}")
-	private String test;
-	
-//	@Value("${circuitBreaker.failureRateThreshold}")
-//	private String cbfrt;
-//	
-//	@Value("${circuitBreaker.waitDurationInOpenState}")
-//	private String cbwfios;
-	
-	@RequestMapping("/connect")
-
-	public String connection() {
-		
-		Callable<String> callable = () -> makeConnection();
-		
-		Callable<String> decoratedCallable = Decorators.ofCallable(callable)
-				.withCircuitBreaker(cb)
-//				.withCircuitBreaker(cbcc.getCb())
-				.withBulkhead(bh)
-				.withRateLimiter(rl)
-				.withRetry(rt)
-				.decorate();
-		
-//		cbcc.getCb().getEventPublisher()
-//			.onSuccess(event -> logger.trace("circuit breaker successful call"))
-//			.onError(event -> logger.trace("circuit breaker error"))
-//			.onIgnoredError(event -> logger.trace("ignored event, not completely sure what this is"))
-//			.onReset(event -> logger.trace("circuit breaker reset"))
-//			.onStateTransition(event -> logger.trace("circuit breaker state transition occurred"));
-		
-//		cbcc.getCb().getEventPublisher().onEvent(event -> logger.info("event occurred: " + event.getClass()));
-					
-		
-//		logger.trace("bulkhead: " + bhcc.getMaxConcurrentCalls());
-//		logger.trace("test: " + test);
-//		logger.trace("cbfrt: " + Long.parseLong(cbfrt));
-//		logger.trace("cbwfios: " + Long.parseLong(cbwfios));
-//		logger.trace("failure rate threshold: " + cbcc.getFailureRateThreshold());
-
-		String result = "this FAILED";
-		try {
-			result = decoratedCallable.call();
-		}
-		catch(ConnectException e) {
-			logger.error("connection failed, from inside try catch");
-		}
-		catch(CallNotPermittedException e) {
-			logger.error("circuit breaker opened");
-		}
-		catch(Exception e) {
-			logger.error("some other exception occurred");
-			e.printStackTrace();
-		}
-		return "this is the front end app: " + result;
-		
-//		Try<String> result = Try.ofCallable(decoratedCallable).recover(throwable -> "Hello from Recovery");
-//
-//		return result.get();
-								
+	public ModelAndView redirectWithUsingForwardPrefix(ModelMap model) {
+		model.addAttribute("attribute", "forwardWithForwardPrefix");
+		return new ModelAndView("forward:/redirectedUrl", model);
 	}
-	
+
+	@RequestMapping(value = { "**" })
+	public Object connection(HttpServletRequest req, HttpServletResponse resp) {
+		Callable<Object> callable = null;
+		if (req.getRequestURL().toString().contains(".png")) {
+			callable = () -> graphics(req, resp, "8082");
+		} else {
+			callable = () -> makeConnection(req, resp, "8082");
+		}
+
+		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
+				.withRateLimiter(rl).withRetry(rt).decorate();
+
+		Try<Object> result = Try.ofCallable(decoratedCallable);
+		return result.get();
+
+	}
+
 	// accesses the other application
-	private String makeConnection() throws ConnectException {
+	private String makeConnection(HttpServletRequest req, HttpServletResponse resp, String port) {
 
-		String inputLine = "accessProducer did not work";
-		try {URL url = new URL("http://localhost:8082/test");
-			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-			conn.setRequestMethod("GET");
 
-			BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+		HttpGet request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port));
 
-			StringBuffer content = new StringBuffer();
-			while ((inputLine = in.readLine()) != null) {
-				content.append(inputLine);
+
+		try (CloseableHttpResponse response = httpClient.execute(request)) {
+
+			// Get HttpResponse Status
+			System.out.println(responseConfig.getStatusLine().toString());
+
+			HttpEntity entity = response.getEntity();
+			Header headers = entity.getContentType();
+			System.out.println(headers);
+
+			if (entity != null) {
+				String result = EntityUtils.toString(entity);
+				return result;
 			}
-			inputLine = content.toString();
-			in.close();
-
-		} catch (MalformedURLException e) {
-			logger.error("url format error while trying to connect to producer");
+		} catch (Exception e) {
+			makeConnection(req, resp, Integer.toString(Integer.parseInt(port) + 1));
 			e.printStackTrace();
 		}
-		catch (ConnectException e) {
-			logger.error("failed to connect to producer");
-			throw e;
-			// e.printStackTrace();
-		} catch (IOException e) {
-			logger.error("ioexception while trying to connect to producer");
-			e.printStackTrace();
-		}
+		return null;
+	}
 
-		//logger.trace("producer output: " + inputLine);
-		return inputLine;
+	private Graphics graphics(HttpServletRequest req, HttpServletResponse resp, String port) throws Exception {
+
+		BufferedImage image = ImageIO.read(new URL(req.getRequestURL().toString().replaceFirst("8081", port)));
+		ByteArrayOutputStream os = new ByteArrayOutputStream();
+		ImageIO.write(image, "png", os);
+		InputStream is = new ByteArrayInputStream(os.toByteArray());
+
+		resp.setContentType(MediaType.IMAGE_PNG_VALUE);
+		IOUtils.copy(is, resp.getOutputStream());
+
+
+		return null;
+
 	}
 }
