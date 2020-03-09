@@ -40,7 +40,6 @@ import io.vavr.control.Try;
 
 @Lazy
 @RestController
-
 public class ConnectionController {
 
 	Logger logger = Logger.getLogger(ConnectionController.class);
@@ -80,15 +79,16 @@ public class ConnectionController {
 
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
 				.withRateLimiter(rl).withRetry(rt).decorate();
-
 		Try<Object> result = Try.ofCallable(decoratedCallable);
 		return result.get();
 	}
 
 	// accesses the other application
 	private String makeConnection(HttpServletRequest req, HttpServletResponse resp, String port) {
+		System.out.println(port);
 
-		HttpGet request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port));
+		HttpGet request = new HttpGet(
+				req.getRequestURL().toString().replaceFirst("8081", port));
 
 		try (CloseableHttpResponse response = httpClient.execute(request)) {
 
@@ -103,9 +103,9 @@ public class ConnectionController {
 				String result = EntityUtils.toString(entity);
 				if (req.getRequestURL().toString().contains(".css")) {
 					result = result.replace("'../fonts/",
-							"'/home/cdelabs/git/spring-petclinic/src/main/resources/static/resources/fonts/");
+							"'file:///home/cdelabs/git/spring-petclinic/src/main/resources/static/resources/fonts/");
 					result = result.replace("'../../webjars/bootstrap/fonts/",
-							"'/home/cdelabs/git/spring-petclinic/src/main/resources/static/resources/fonts/");
+							"'file:///home/cdelabs/git/spring-petclinic/src/main/resources/static/resources/fonts/");
 					response.setEntity(EntityBuilder.create().setText(result)
 							.setContentType(ContentType.APPLICATION_JSON).build());
 				}
@@ -119,15 +119,19 @@ public class ConnectionController {
 	}
 
 	private Graphics graphics(HttpServletRequest req, HttpServletResponse resp, String port) throws Exception {
+		try {
+			BufferedImage image = ImageIO.read(new URL(
+					req.getRequestURL().toString().replaceFirst("8081", port)));
+			ByteArrayOutputStream os = new ByteArrayOutputStream();
+			ImageIO.write(image, "png", os);
+			InputStream is = new ByteArrayInputStream(os.toByteArray());
 
-		BufferedImage image = ImageIO.read(new URL(req.getRequestURL().toString().replaceFirst("8081", port)));
-		ByteArrayOutputStream os = new ByteArrayOutputStream();
-		ImageIO.write(image, "png", os);
-		InputStream is = new ByteArrayInputStream(os.toByteArray());
-
-		resp.setContentType(MediaType.IMAGE_PNG_VALUE);
-		IOUtils.copy(is, resp.getOutputStream());
-
+			resp.setContentType(MediaType.IMAGE_PNG_VALUE);
+			IOUtils.copy(is, resp.getOutputStream());
+		} catch (Exception e) {
+			graphics(req, resp, Integer.toString(Integer.parseInt(port) + 1));
+			e.printStackTrace();
+		}
 		return null;
 
 	}
