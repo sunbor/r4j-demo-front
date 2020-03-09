@@ -25,6 +25,7 @@ import io.github.resilience4j.retry.Retry;
 
 @Lazy
 @RestController
+
 public class ConnectionController {
 	
 	Logger logger = Logger.getLogger(ConnectionController.class);
@@ -33,9 +34,13 @@ public class ConnectionController {
 //	@Autowired
 //	private CircuitBreakerCustomConfig cbcc;
 	
-	//@Lazy
-	//@Autowired
-	//private BulkheadCustomConfig bhcc;
+//	@Lazy
+//	@Autowired
+//	private BulkheadCustomConfig bhcc;
+	
+	@Lazy
+	@Autowired
+	private BulkheadTestClass bhTest;
 	
 	@Lazy
 	@Autowired
@@ -79,11 +84,12 @@ public class ConnectionController {
 //		cbcc.getCb().getEventPublisher().onEvent(event -> logger.info("event occurred: " + event.getClass()));
 					
 		
-		//logger.trace("bulkhead: " + bhcc.getMaxConcurrentCalls());
+//		logger.trace("bulkhead: " + bhcc.getMaxConcurrentCalls());
 //		logger.trace("test: " + test);
 //		logger.trace("cbfrt: " + Long.parseLong(cbfrt));
 //		logger.trace("cbwfios: " + Long.parseLong(cbwfios));
 //		logger.trace("failure rate threshold: " + cbcc.getFailureRateThreshold());
+		logger.trace("bulkhead: " + bhTest.getTest1());
 
 		String result = "this FAILED";
 		try {

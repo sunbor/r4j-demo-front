@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
@@ -27,6 +28,7 @@ public class CircuitBreakerCustomConfig {
 	@Value("${circuitBreaker.waitDurationInOpenState}")
 	private String waitDurationInOpenState;
 
+
 	//public final CircuitBreakerConfig cbConfig;
 	
 //	public final CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
@@ -42,8 +44,7 @@ public class CircuitBreakerCustomConfig {
 				.slidingWindowSize(Integer.parseInt(slidingWindowSize))
 				.waitDurationInOpenState(Duration.ofMillis(Long.parseLong(waitDurationInOpenState)))
 				.build();
-		CircuitBreaker cb = CircuitBreaker.of("connectcb", cbConfig);
-		return cb;
+		return CircuitBreaker.of("connectcb", cbConfig);
 	}
 
 	public String getFailureRateThreshold() {
