@@ -3,29 +3,32 @@ package com.example.demo;
 import java.time.Duration;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RequestMapping;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 
-@Component
-@Lazy
+//@Component
+//@Lazy
+@Configuration
+@ConfigurationProperties(prefix = "circuit-breaker")
 public class CircuitBreakerCustomConfig {
 		
 //	circuitBreaker.failureRateThreshold=10
 //			circuitBreaker.slidingWindowSize=50
 //			circuitBreaker.waitDurationInOpenState=5000
 			
-	@Value("${circuitBreaker.failureRateThreshold}")
+//	@Value("${circuitBreaker.failureRateThreshold}")
 	private String failureRateThreshold;
 	
-	@Value("${circuitBreaker.slidingWindowSize}")
+//	@Value("${circuitBreaker.slidingWindowSize}")
 	private String slidingWindowSize;
 	
-	@Value("${circuitBreaker.waitDurationInOpenState}")
+//	@Value("${circuitBreaker.waitDurationInOpenState}")
 	private String waitDurationInOpenState;
 
 
@@ -38,6 +41,7 @@ public class CircuitBreakerCustomConfig {
 //			.build();
 
 	@Bean
+	@ConfigurationProperties(prefix = "circuit-breaker")
 	public CircuitBreaker getCb() {
 		CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
 				.failureRateThreshold(Long.parseLong(failureRateThreshold))

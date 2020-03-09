@@ -46,19 +46,27 @@ public class ConnectionController {
 	@Autowired
 	CircuitBreaker cb;
 	
+	@Lazy
+	@Autowired
 	Bulkhead bh = Bulkhead.ofDefaults("connect");
+	
+	@Lazy
+	@Autowired
 	RateLimiter rl = RateLimiter.ofDefaults("connect");
+	
+	@Lazy
+	@Autowired
 	Retry rt = Retry.ofDefaults("connect");
 
 
 	@Value("${test.test}")
 	private String test;
 	
-	@Value("${circuitBreaker.failureRateThreshold}")
-	private String cbfrt;
-	
-	@Value("${circuitBreaker.waitDurationInOpenState}")
-	private String cbwfios;
+//	@Value("${circuitBreaker.failureRateThreshold}")
+//	private String cbfrt;
+//	
+//	@Value("${circuitBreaker.waitDurationInOpenState}")
+//	private String cbwfios;
 	
 	@RequestMapping("/connect")
 
