@@ -1,4 +1,4 @@
-package com.example.demo;
+package com.example.properties;
 
 import java.time.Duration;
 
@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.example.demo.BulkheadTestClass;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.bulkhead.BulkheadConfig;
