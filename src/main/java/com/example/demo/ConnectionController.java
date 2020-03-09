@@ -44,15 +44,15 @@ public class ConnectionController {
 	
 	@Lazy
 	@Autowired
-	Bulkhead bh = Bulkhead.ofDefaults("connect");
+	Bulkhead bh;
 	
 	@Lazy
 	@Autowired
-	RateLimiter rl = RateLimiter.ofDefaults("connect");
+	RateLimiter rl;
 	
 	@Lazy
 	@Autowired
-	Retry rt = Retry.ofDefaults("connect");
+	Retry rt;
 
 
 	@Value("${test.test}")
@@ -73,9 +73,9 @@ public class ConnectionController {
 		Callable<String> decoratedCallable = Decorators.ofCallable(callable)
 				.withCircuitBreaker(cb)
 //				.withCircuitBreaker(cbcc.getCb())
-//				.withBulkhead(bh)
-//				.withRateLimiter(rl)
-//				.withRetry(rt)
+				.withBulkhead(bh)
+				.withRateLimiter(rl)
+				.withRetry(rt)
 				.decorate();
 		
 //		cbcc.getCb().getEventPublisher()
