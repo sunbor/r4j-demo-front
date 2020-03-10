@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.http.MediaType;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.ModelAndView;
 
@@ -68,9 +69,10 @@ public class ConnectionController {
 	}
 
 	@RequestMapping(value = { "**" })
-	public Object connection(HttpServletRequest req, HttpServletResponse resp) {
+	public Object connection(HttpServletRequest req, HttpServletResponse resp,
+			@RequestParam(value = "lastName", required = false) String lastName) {
 		Callable<Object> callable = null;
-		callable = () -> Dispatcher(req, resp);
+		callable = () -> Dispatcher(req, resp, lastName);
 
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
 				.withRateLimiter(rl).withRetry(rt).decorate();
@@ -78,14 +80,14 @@ public class ConnectionController {
 		return result.get();
 	}
 
-	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp) {
+	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String lastName) {
 		int port = 8082;
 		String result = null;
 		while (result == null) {
 			if (req.getRequestURL().toString().contains(".png")) {
 				result = graphics(req, resp, Integer.toString(port));
 			} else {
-				result = makeConnection(req, resp, Integer.toString(port));
+				result = makeConnection(req, resp, Integer.toString(port), lastName);
 			}
 			port++;
 		}
@@ -94,10 +96,13 @@ public class ConnectionController {
 	}
 
 	// accesses the other application
-	private String makeConnection(HttpServletRequest req, HttpServletResponse resp, String port) {
+	private String makeConnection(HttpServletRequest req, HttpServletResponse resp, String port, String lastName) {
 		System.out.println(port);
 
 		HttpGet request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port));
+		if (lastName != null) {
+			request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port) + "?LastName=" + lastName);
+		}
 
 		try (CloseableHttpResponse response = httpClient.execute(request)) {
 
@@ -116,7 +121,6 @@ public class ConnectionController {
 					response.setEntity(EntityBuilder.create().setText(result)
 							.setContentType(ContentType.APPLICATION_JSON).build());
 				}
-				System.out.println("here1");
 				return result;
 			}
 		} catch (Exception e) {
@@ -134,7 +138,6 @@ public class ConnectionController {
 
 			resp.setContentType(MediaType.IMAGE_PNG_VALUE);
 			IOUtils.copy(is, resp.getOutputStream());
-			System.out.println("here2");
 			return "done";
 		} catch (Exception e) {
 			// e.printStackTrace();
