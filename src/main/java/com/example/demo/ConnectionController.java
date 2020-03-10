@@ -84,6 +84,7 @@ public class ConnectionController {
 		//Try<Object> result = Try.ofCallable(decoratedCallable);
 		Object result = null;
 		cb.getEventPublisher().onStateTransition(event -> {
+			logger.trace("state transition: " + event.getStateTransition());
 			if (event.getStateTransition() == StateTransition.HALF_OPEN_TO_CLOSED) {
 				port = 8082;
 				logger.trace("circuit breaker has been closed");}
