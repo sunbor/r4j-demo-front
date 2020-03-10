@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.net.ConnectException;
 import java.net.URL;
 import java.util.concurrent.Callable;
 
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.ModelAndView;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.decorators.Decorators;
 import io.github.resilience4j.ratelimiter.RateLimiter;
@@ -61,6 +63,7 @@ public class ConnectionController {
 	@Lazy
 	@Autowired
 	Retry rt;
+	
 
 	public ModelAndView redirectWithUsingForwardPrefix(ModelMap model) {
 		model.addAttribute("attribute", "forwardWithForwardPrefix");
@@ -74,8 +77,22 @@ public class ConnectionController {
 
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
 				.withRateLimiter(rl).withRetry(rt).decorate();
-		Try<Object> result = Try.ofCallable(decoratedCallable);
-		return result.get();
+		//Try<Object> result = Try.ofCallable(decoratedCallable);
+		Object result = null;
+		try {
+			result = decoratedCallable.call();
+		}
+		catch(ConnectException e) {
+			logger.error("connection failed, from inside try catch");
+		}
+		catch(CallNotPermittedException e) {
+			logger.error("circuit breaker opened");
+		}
+		catch(Exception e) {
+			logger.error("some other exception occurred");
+			e.printStackTrace();
+		}
+		return result;
 	}
 
 	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp) {
