@@ -87,10 +87,10 @@ public class ConnectionController {
 		});
 		try {
 			result = decoratedCallable.call();
-		} catch (ConnectException e) {
-			logger.error("connection failed, from inside try catch");
 		} catch (CallNotPermittedException e) {
 			logger.error("circuit breaker opened");
+		} catch (ConnectException e) {
+			logger.error("connection failed, from inside try catch");
 		} catch (Exception e) {
 			logger.error("some other exception occurred");
 			e.printStackTrace();
