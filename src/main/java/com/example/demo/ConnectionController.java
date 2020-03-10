@@ -82,21 +82,16 @@ public class ConnectionController {
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
 				.withRateLimiter(rl).withRetry(rt).decorate();
 		//Try<Object> result = Try.ofCallable(decoratedCallable);
-		cb.getEventPublisher().onStateTransition(event -> {
-			if(event.getStateTransition() == StateTransition.HALF_OPEN_TO_CLOSED)
-				port = 8082;
-			logger.trace("circuit breaker has been closed");});
-
 		Object result = null;
 		cb.getEventPublisher().onStateTransition(event -> {
-			if (event.getStateTransition() == StateTransition.HALF_OPEN_TO_CLOSED)
+			if (event.getStateTransition() == StateTransition.HALF_OPEN_TO_CLOSED) {
 				port = 8082;
-			logger.trace("circuit breaker has been closed");
+				logger.trace("circuit breaker has been closed");}
 		});
 		try {
 			result = decoratedCallable.call();
 		} catch (CallNotPermittedException e) {
-			logger.error("circuit breaker opened");
+			logger.error("circuit breaker is open");
 		} catch (ConnectException e) {
 			logger.error("connection failed, from inside try catch");
 		} catch (Exception e) {
