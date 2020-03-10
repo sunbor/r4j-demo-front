@@ -35,6 +35,8 @@ import org.springframework.web.servlet.ModelAndView;
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker.State;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker.StateTransition;
 import io.github.resilience4j.decorators.Decorators;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.retry.Retry;
@@ -49,6 +51,8 @@ public class ConnectionController {
 	// one instance, reuse
 	private final CloseableHttpClient httpClient = HttpClients.createDefault();
 
+	static int port = 8082;
+	
 	@Lazy
 	@Autowired
 	CircuitBreaker cb;
@@ -80,6 +84,10 @@ public class ConnectionController {
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
 				.withRateLimiter(rl).withRetry(rt).decorate();
 		//Try<Object> result = Try.ofCallable(decoratedCallable);
+		cb.getEventPublisher().onStateTransition(event -> {
+			if(event.getStateTransition() == StateTransition.HALF_OPEN_TO_CLOSED)
+				port = 8082;
+			logger.trace("circuit breaker has been closed");});
 		Object result = null;
 		try {
 			result = decoratedCallable.call();
@@ -98,7 +106,6 @@ public class ConnectionController {
 	}
 
 	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String lastName) {
-		int port = 8082;
 		String result = null;
 		while (result == null) {
 			if (req.getRequestURL().toString().contains(".png")) {
