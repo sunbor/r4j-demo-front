@@ -35,15 +35,15 @@ import org.springframework.web.servlet.ModelAndView;
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker.StateTransition;
 import io.github.resilience4j.decorators.Decorators;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.retry.Retry;
-import io.vavr.control.Try;
 
 @Lazy
 @RestController
 public class ConnectionController {
-
+	static int port = 8082;
 	Logger logger = Logger.getLogger(ConnectionController.class);
 
 	// one instance, reuse
@@ -64,7 +64,6 @@ public class ConnectionController {
 	@Lazy
 	@Autowired
 	Retry rt;
-	
 
 	public ModelAndView redirectWithUsingForwardPrefix(ModelMap model) {
 		model.addAttribute("attribute", "forwardWithForwardPrefix");
@@ -77,38 +76,40 @@ public class ConnectionController {
 		Callable<Object> callable = null;
 		callable = () -> Dispatcher(req, resp, lastName);
 
-		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
-				.withRateLimiter(rl).withRetry(rt).decorate();
-		//Try<Object> result = Try.ofCallable(decoratedCallable);
+		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb)
+				.withBulkhead(bh).withRateLimiter(rl).withRetry(rt).decorate();
+		// Try<Object> result = Try.ofCallable(decoratedCallable);
 		Object result = null;
+		cb.getEventPublisher().onStateTransition(event -> {
+			if (event.getStateTransition() == StateTransition.HALF_OPEN_TO_CLOSED)
+				port = 8082;
+			logger.trace("circuit breaker has been closed");
+		});
 		try {
 			result = decoratedCallable.call();
-		}
-		catch(ConnectException e) {
+		} catch (ConnectException e) {
 			logger.error("connection failed, from inside try catch");
-		}
-		catch(CallNotPermittedException e) {
+		} catch (CallNotPermittedException e) {
 			logger.error("circuit breaker opened");
-		}
-		catch(Exception e) {
+		} catch (Exception e) {
 			logger.error("some other exception occurred");
 			e.printStackTrace();
 		}
 		return result;
 	}
 
-	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String lastName) {
-		int port = 8082;
+	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String lastName) throws Exception {
 		String result = null;
-		while (result == null) {
-			if (req.getRequestURL().toString().contains(".png")) {
-				result = graphics(req, resp, Integer.toString(port));
-			} else {
-				result = makeConnection(req, resp, Integer.toString(port), lastName);
-			}
-			port++;
+		if (req.getRequestURL().toString().contains(".png")) {
+			result = graphics(req, resp, Integer.toString(port));
+		} else {
+			result = makeConnection(req, resp, Integer.toString(port), lastName);
 		}
-		System.out.println("connected to port " + (port-1));
+		if (result == null) {
+			throw new ConnectException();
+		}
+		if (resp.getStatus() == 200)
+			System.out.println("connected to port " + (port - 1));
 		return result;
 	}
 
@@ -125,7 +126,7 @@ public class ConnectionController {
 
 			// Get HttpResponse Status
 			System.out.println(response.getStatusLine().toString());
-
+			System.out.println(1);
 			HttpEntity entity = response.getEntity();
 			Header headers = entity.getContentType();
 			System.out.println(headers);
