@@ -2,83 +2,104 @@ package com.example.properties;
 
 import java.time.Duration;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.stereotype.Component;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 
-//@Component
-//@Lazy
 @Configuration
 @ConfigurationProperties(prefix = "circuit-breaker")
 public class CircuitBreakerCustomConfig {
 		
-//	circuitBreaker.failureRateThreshold=10
-//			circuitBreaker.slidingWindowSize=50
-//			circuitBreaker.waitDurationInOpenState=5000
-			
-//	@Value("${circuitBreaker.failureRateThreshold}")
 	private float failureRateThreshold;
-	
-//	@Value("${circuitBreaker.slidingWindowSize}")
+	private float slowCallRateThreshold;
+	private Duration slowCallDurationThreshold;
+	private int permittedNumberOfCallsInHalfOpenState;
 	private int slidingWindowSize;
-	
-//	@Value("${circuitBreaker.waitDurationInOpenState}")
+	private int minimumNumberOfCalls;
 	private Duration waitDurationInOpenState;
-	
-
-	//public final CircuitBreakerConfig cbConfig;
-	
-//	public final CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
-//			.failureRateThreshold(Long.parseLong(failureRateThreshold))
-//			.slidingWindowSize(Integer.parseInt(slidingWindowSize))
-//			.waitDurationInOpenState(Duration.ofMillis(Long.parseLong(waitDurationInOpenState)))
-//			.build();
+	private boolean automaticTransitionFromOpenToHalfOpenEnabled;
 	
 	@Bean
 	@ConfigurationProperties(prefix = "circuit-breaker")
 	public CircuitBreaker getCb() {
 		CircuitBreakerConfig cbConfig = CircuitBreakerConfig.custom()
 				.failureRateThreshold(failureRateThreshold)
+				.slowCallRateThreshold(slowCallRateThreshold)
+				.slowCallDurationThreshold(slowCallDurationThreshold)
+				.permittedNumberOfCallsInHalfOpenState(permittedNumberOfCallsInHalfOpenState)
 				.slidingWindowSize(slidingWindowSize)
+				.minimumNumberOfCalls(minimumNumberOfCalls)
 				.waitDurationInOpenState(waitDurationInOpenState)
+				.automaticTransitionFromOpenToHalfOpenEnabled(automaticTransitionFromOpenToHalfOpenEnabled)
 				.build();
 		return CircuitBreaker.of("connectcb", cbConfig);
 	}
-
 
 	public float getFailureRateThreshold() {
 		return failureRateThreshold;
 	}
 
-
 	public void setFailureRateThreshold(float failureRateThreshold) {
 		this.failureRateThreshold = failureRateThreshold;
 	}
 
+	public float getSlowCallRateThreshold() {
+		return slowCallRateThreshold;
+	}
+
+	public void setSlowCallRateThreshold(float slowCallRateThreshold) {
+		this.slowCallRateThreshold = slowCallRateThreshold;
+	}
+
+	public Duration getSlowCallDurationThreshold() {
+		return slowCallDurationThreshold;
+	}
+
+	public void setSlowCallDurationThreshold(Duration slowCallDurationThreshold) {
+		this.slowCallDurationThreshold = slowCallDurationThreshold;
+	}
+
+	public int getPermittedNumberOfCallsInHalfOpenState() {
+		return permittedNumberOfCallsInHalfOpenState;
+	}
+
+	public void setPermittedNumberOfCallsInHalfOpenState(int permittedNumberOfCallsInHalfOpenState) {
+		this.permittedNumberOfCallsInHalfOpenState = permittedNumberOfCallsInHalfOpenState;
+	}
 
 	public int getSlidingWindowSize() {
 		return slidingWindowSize;
 	}
 
-
 	public void setSlidingWindowSize(int slidingWindowSize) {
 		this.slidingWindowSize = slidingWindowSize;
 	}
 
+	public int getMinimumNumberOfCalls() {
+		return minimumNumberOfCalls;
+	}
+
+	public void setMinimumNumberOfCalls(int minimumNumberOfCalls) {
+		this.minimumNumberOfCalls = minimumNumberOfCalls;
+	}
 
 	public Duration getWaitDurationInOpenState() {
 		return waitDurationInOpenState;
 	}
 
-
 	public void setWaitDurationInOpenState(Duration waitDurationInOpenState) {
 		this.waitDurationInOpenState = waitDurationInOpenState;
+	}
+
+	public boolean isAutomaticTransitionFromOpenToHalfOpenEnabled() {
+		return automaticTransitionFromOpenToHalfOpenEnabled;
+	}
+
+	public void setAutomaticTransitionFromOpenToHalfOpenEnabled(boolean automaticTransitionFromOpenToHalfOpenEnabled) {
+		this.automaticTransitionFromOpenToHalfOpenEnabled = automaticTransitionFromOpenToHalfOpenEnabled;
 	}
 
 
