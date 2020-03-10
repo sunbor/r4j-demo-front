@@ -1,6 +1,5 @@
 package com.example.demo;
 
-import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -71,11 +70,7 @@ public class ConnectionController {
 	@RequestMapping(value = { "**" })
 	public Object connection(HttpServletRequest req, HttpServletResponse resp) {
 		Callable<Object> callable = null;
-		if (req.getRequestURL().toString().contains(".png")) {
-			callable = () -> graphics(req, resp, "8082");
-		} else {
-			callable = () -> makeConnection(req, resp, "8082");
-		}
+		callable = () -> Dispatcher(req, resp);
 
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
 				.withRateLimiter(rl).withRetry(rt).decorate();
@@ -83,12 +78,26 @@ public class ConnectionController {
 		return result.get();
 	}
 
+	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp) {
+		int port = 8082;
+		String result = null;
+		while (result == null) {
+			if (req.getRequestURL().toString().contains(".png")) {
+				result = graphics(req, resp, Integer.toString(port));
+			} else {
+				result = makeConnection(req, resp, Integer.toString(port));
+			}
+			port++;
+		}
+		System.out.println("connected to port " + port);
+		return result;
+	}
+
 	// accesses the other application
 	private String makeConnection(HttpServletRequest req, HttpServletResponse resp, String port) {
 		System.out.println(port);
 
-		HttpGet request = new HttpGet(
-				req.getRequestURL().toString().replaceFirst("8081", port));
+		HttpGet request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port));
 
 		try (CloseableHttpResponse response = httpClient.execute(request)) {
 
@@ -102,37 +111,34 @@ public class ConnectionController {
 			if (entity != null) {
 				String result = EntityUtils.toString(entity);
 				if (req.getRequestURL().toString().contains(".css")) {
-					result = result.replace("'../fonts/",
-							"'file:///home/cdelabs/git/spring-petclinic/src/main/resources/static/resources/fonts/");
-					result = result.replace("'../../webjars/bootstrap/fonts/",
-							"'file:///home/cdelabs/git/spring-petclinic/src/main/resources/static/resources/fonts/");
+					result = result.replace("'../fonts/", "'localhost:8081/fonts/");
+					result = result.replace("'../../webjars/bootstrap/fonts/", "'localhost:8081/fonts/");
 					response.setEntity(EntityBuilder.create().setText(result)
 							.setContentType(ContentType.APPLICATION_JSON).build());
 				}
+				System.out.println("here1");
 				return result;
 			}
 		} catch (Exception e) {
-			makeConnection(req, resp, Integer.toString(Integer.parseInt(port) + 1));
-			e.printStackTrace();
+			// e.printStackTrace();
 		}
 		return null;
 	}
 
-	private Graphics graphics(HttpServletRequest req, HttpServletResponse resp, String port) throws Exception {
+	private String graphics(HttpServletRequest req, HttpServletResponse resp, String port) {
 		try {
-			BufferedImage image = ImageIO.read(new URL(
-					req.getRequestURL().toString().replaceFirst("8081", port)));
+			BufferedImage image = ImageIO.read(new URL(req.getRequestURL().toString().replaceFirst("8081", port)));
 			ByteArrayOutputStream os = new ByteArrayOutputStream();
 			ImageIO.write(image, "png", os);
 			InputStream is = new ByteArrayInputStream(os.toByteArray());
 
 			resp.setContentType(MediaType.IMAGE_PNG_VALUE);
 			IOUtils.copy(is, resp.getOutputStream());
+			System.out.println("here2");
+			return "done";
 		} catch (Exception e) {
-			graphics(req, resp, Integer.toString(Integer.parseInt(port) + 1));
-			e.printStackTrace();
+			// e.printStackTrace();
 		}
 		return null;
-
 	}
 }
