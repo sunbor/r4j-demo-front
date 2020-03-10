@@ -91,7 +91,7 @@ public class ConnectionController {
 			}
 			port++;
 		}
-		System.out.println("connected to port " + port);
+		System.out.println("connected to port " + (port-1));
 		return result;
 	}
 
