@@ -50,7 +50,7 @@ public class ConnectionController {
 	private final CloseableHttpClient httpClient = HttpClients.createDefault();
 
 	static int port = 8082;
-	
+
 	@Lazy
 	@Autowired
 	CircuitBreaker cb;
@@ -78,15 +78,19 @@ public class ConnectionController {
 		Callable<Object> callable = null;
 		callable = () -> Dispatcher(req, resp, lastName);
 
-
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
 				.withRateLimiter(rl).withRetry(rt).decorate();
-		//Try<Object> result = Try.ofCallable(decoratedCallable);
+		// Try<Object> result = Try.ofCallable(decoratedCallable);
 		Object result = null;
 		cb.getEventPublisher().onStateTransition(event -> {
 			if (event.getStateTransition() == StateTransition.HALF_OPEN_TO_CLOSED) {
 				port = 8082;
-				logger.trace("circuit breaker has been closed");}
+				logger.trace("circuit breaker has been closed");
+			}
+			if (event.getStateTransition() == StateTransition.CLOSED_TO_OPEN) {
+				port = 8083;
+				logger.trace("circuit breaker opened");
+			}
 		});
 		try {
 			result = decoratedCallable.call();
@@ -101,8 +105,8 @@ public class ConnectionController {
 		return result;
 	}
 
-
-	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String lastName) throws ConnectException {
+	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String lastName)
+			throws ConnectException {
 
 		String result = null;
 		if (req.getRequestURL().toString().contains(".png")) {
