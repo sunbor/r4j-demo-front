@@ -5,13 +5,22 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 
 @Configuration
 @ConfigurationProperties(prefix = "circuit-breaker")
+@RestController
 public class CircuitBreakerCustomConfig {
+	
+	@RequestMapping(value="test")
+	public float testConfig() {
+		System.out.println("failure rate threshold: " + failureRateThreshold);
+		return failureRateThreshold;
+	}
 		
 	private float failureRateThreshold;
 	private float slowCallRateThreshold;
