@@ -51,19 +51,15 @@ public class ConnectionController {
 
 	static int port = 8082;
 
-	@Lazy
 	@Autowired
 	CircuitBreaker cb;
 
-	@Lazy
 	@Autowired
 	Bulkhead bh;
 
-	@Lazy
 	@Autowired
 	RateLimiter rl;
 
-	@Lazy
 	@Autowired
 	Retry rt;
 
