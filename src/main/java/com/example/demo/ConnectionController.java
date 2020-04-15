@@ -70,7 +70,8 @@ public class ConnectionController {
 
 	@RequestMapping(value = { "**" })
 	public Object connection(HttpServletRequest req, HttpServletResponse resp,
-			@RequestParam(value = "lastName", required = false) String lastName) throws CallNotPermittedException, ConnectException, Exception{
+			@RequestParam(value = "lastName", required = false) String lastName) //throws CallNotPermittedException, ConnectException, Exception
+	{
 		Callable<Object> callable = null;
 		callable = () -> Dispatcher(req, resp, lastName);
 
@@ -93,14 +94,17 @@ public class ConnectionController {
 			result = decoratedCallable.call();
 		} catch (CallNotPermittedException e) {
 			logger.error("circuit breaker is open");
-			throw e;
+			resp.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+			//throw e;
 		} catch (ConnectException e) {
 			logger.error("CBException: connection failed, from inside try catch");
-			throw e;
+			resp.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+			//throw e;
 		} catch (Exception e) {
 			logger.error("CBException: some other exception occurred");
 			e.printStackTrace();
-			throw e;
+			resp.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+			//throw e;
 		}
 		return result;
 	}
