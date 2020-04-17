@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.ModelAndView;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.ThreadPoolBulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker.StateTransition;
@@ -56,6 +57,9 @@ public class ConnectionController {
 
 	@Autowired
 	Bulkhead bh;
+	
+	@Autowired
+	ThreadPoolBulkhead tpbh;
 
 	@Autowired
 	RateLimiter rl;
@@ -75,8 +79,13 @@ public class ConnectionController {
 		Callable<Object> callable = null;
 		callable = () -> Dispatcher(req, resp, lastName);
 
-		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
-				.withRateLimiter(rl).withRetry(rt).decorate();
+		Callable<Object> decoratedCallable = Decorators.ofCallable(callable)
+				.withCircuitBreaker(cb)
+				.withBulkhead(bh)
+				//.withThreadPoolBulkhead(tpbh)
+				.withRateLimiter(rl)
+				.withRetry(rt)
+				.decorate();
 		// Try<Object> result = Try.ofCallable(decoratedCallable);
 		Object result = null;
 		cb.getEventPublisher().onStateTransition(event -> {
