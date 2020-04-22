@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.ModelAndView;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
 import io.github.resilience4j.bulkhead.ThreadPoolBulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -40,6 +41,7 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker.StateTransition;
 import io.github.resilience4j.decorators.Decorators;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.retry.Retry;
+import io.vavr.control.Try;
 
 @Lazy
 @RestController
@@ -51,6 +53,8 @@ public class ConnectionController {
 	private final CloseableHttpClient httpClient = HttpClients.createDefault();
 
 	static int port = 8082;
+	static int port1 = 8082;
+	static int port2 = 8083;
 
 	@Autowired
 	CircuitBreaker cb;
@@ -77,7 +81,7 @@ public class ConnectionController {
 			@RequestParam(value = "lastName", required = false) String lastName) //throws CallNotPermittedException, ConnectException, Exception
 	{
 		Callable<Object> callable = null;
-		callable = () -> Dispatcher(req, resp, lastName);
+		callable = () -> Dispatcher(req, resp, lastName, port1);
 
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable)
 				.withCircuitBreaker(cb)
@@ -85,9 +89,19 @@ public class ConnectionController {
 				//.withThreadPoolBulkhead(tpbh)
 				.withRateLimiter(rl)
 				.withRetry(rt)
+				.withFallback(Exception.class, throwable -> {
+					logger.trace("inside fallback");
+					try {
+						return Dispatcher(req, resp, lastName, port2);
+					} catch (ConnectException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+					return throwable;
+				})
 				.decorate();
-		// Try<Object> result = Try.ofCallable(decoratedCallable);
-		Object result = null;
+		//Try<Object> fallbackTest = Try.ofCallable(decoratedCallable).recover(f);
+
 		cb.getEventPublisher().onStateTransition(event -> {
 			logger.trace("state transition: " + event.getStateTransition());
 			if (event.getStateTransition() == StateTransition.HALF_OPEN_TO_CLOSED) {
@@ -99,6 +113,7 @@ public class ConnectionController {
 				logger.trace("circuit breaker opened");
 			}
 		});
+		Object result = null;
 		try {
 			result = decoratedCallable.call();
 		} catch (CallNotPermittedException e) {
@@ -118,7 +133,7 @@ public class ConnectionController {
 		return result;
 	}
 
-	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String lastName)
+	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String lastName, int port)
 			throws ConnectException {
 
 		String result = null;
@@ -131,13 +146,13 @@ public class ConnectionController {
 			throw new ConnectException();
 		}
 		if (resp.getStatus() == 200)
-			System.out.println("connected to port " + (port - 1));
+			logger.trace("connected to port " + (port - 1));
 		return result;
 	}
 
 	// accesses the other application
 	private String makeConnection(HttpServletRequest req, HttpServletResponse resp, String port, String lastName) {
-		System.out.println(port);
+		logger.trace(port);
 
 		HttpGet request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port));
 		if (lastName != null) {
@@ -147,11 +162,11 @@ public class ConnectionController {
 		try (CloseableHttpResponse response = httpClient.execute(request)) {
 
 			// Get HttpResponse Status
-			System.out.println(response.getStatusLine().toString());
-			System.out.println(1);
+			logger.trace(response.getStatusLine().toString());
+			//System.out.println(1);
 			HttpEntity entity = response.getEntity();
 			Header headers = entity.getContentType();
-			System.out.println(headers);
+			logger.trace(headers);
 
 			if (entity != null) {
 				String result = EntityUtils.toString(entity);
