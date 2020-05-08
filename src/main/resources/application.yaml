@@ -1,6 +1,7 @@
 server:
   port : 8081
-  
+  tomcat:
+    connection-timeout : 1000
   
 config:
   primary:

@@ -17,9 +17,11 @@ import org.apache.http.HttpEntity;
 import org.apache.http.client.entity.EntityBuilder;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 import org.apache.tomcat.util.http.fileupload.IOUtils;
@@ -47,7 +49,11 @@ public class ConnectionController {
 	Logger logger = Logger.getLogger(ConnectionController.class);
 
 	// one instance, reuse
-	private final CloseableHttpClient httpClient = HttpClients.createDefault();
+	RequestConfig config = RequestConfig.custom()
+		.setConnectTimeout(500)
+		.setConnectionRequestTimeout(500)
+		.setSocketTimeout(300).build();
+	private final CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultRequestConfig(config).build();;
 
 	static int port = 8082;
 
@@ -79,7 +85,7 @@ public class ConnectionController {
 		callable = () -> Dispatcher(req, resp, lastName);
 
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
-				.withRateLimiter(rl).withRetry(rt).decorate();
+		.withRateLimiter(rl).withRetry(rt).decorate();
 		// Try<Object> result = Try.ofCallable(decoratedCallable);
 		Object result = null;
 		cb.getEventPublisher().onStateTransition(event -> {
@@ -134,7 +140,7 @@ public class ConnectionController {
 		if (lastName != null) {
 			request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port) + "?LastName=" + lastName);
 		}
-
+		
 		try (CloseableHttpResponse response = httpClient.execute(request)) {
 
 			// Get HttpResponse Status
