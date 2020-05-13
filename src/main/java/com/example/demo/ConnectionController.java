@@ -113,12 +113,6 @@ public class ConnectionController {
 				})
 				.decorate();
 
-
-		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
-		.withRateLimiter(rl).withRetry(rt).decorate();
-		// Try<Object> result = Try.ofCallable(decoratedCallable);
-		Object result = null;
-
 		cb.getEventPublisher().onStateTransition(event -> {
 			logger.trace("state transition: " + event.getStateTransition());
 			if (event.getStateTransition() == StateTransition.HALF_OPEN_TO_CLOSED) {
