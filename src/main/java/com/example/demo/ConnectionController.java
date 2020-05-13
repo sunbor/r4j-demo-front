@@ -151,7 +151,7 @@ public class ConnectionController {
 		Callable<String> decoratedSupplier = tl.decorateFutureSupplier(supplierF);
 		//assign result to result object
 		result = decoratedSupplier.call();
-		logger.trace("result from time limiter: " + result);
+		//logger.trace("result from time limiter: " + result);
 		return result;
 		
 	}
