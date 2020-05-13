@@ -94,14 +94,15 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-configuration-processor</artifactId>
 			<optional>true</optional>
-    </dependency>
+		</dependency>
 
-  <dependency>
+		<dependency>
 			<groupId>org.mitre.dsmiley.httpproxy</groupId>
 			<artifactId>smiley-http-proxy-servlet</artifactId>
 			<version>1.11</version>
 
 		</dependency>
+		
 	</dependencies>
 
 	<dependencyManagement>
