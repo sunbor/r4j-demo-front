@@ -6,14 +6,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.URL;
-import java.time.Duration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.function.Supplier;
 
+import javax.cache.Cache;
 import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -35,7 +32,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.http.MediaType;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,7 +40,6 @@ import org.springframework.web.servlet.ModelAndView;
 import com.example.utility.ThrowingConsumerWrapper;
 
 import io.github.resilience4j.bulkhead.Bulkhead;
-import io.github.resilience4j.bulkhead.BulkheadFullException;
 import io.github.resilience4j.bulkhead.ThreadPoolBulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -53,7 +48,6 @@ import io.github.resilience4j.decorators.Decorators;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.timelimiter.TimeLimiter;
-import io.vavr.control.Try;
 
 @Lazy
 @RestController
@@ -89,6 +83,9 @@ public class ConnectionController {
 	
 	@Autowired
 	TimeLimiter tl;
+	
+//	@Autowired
+//	Cache<Long, String> cacheInstance;
 
 	public ModelAndView redirectWithUsingForwardPrefix(ModelMap model) {
 		model.addAttribute("attribute", "forwardWithForwardPrefix");
@@ -97,35 +94,24 @@ public class ConnectionController {
 
 	@RequestMapping(value = { "**" })
 	public Object connection(HttpServletRequest req, HttpServletResponse resp,
-			@RequestParam(value = "lastName", required = false) String lastName) //throws CallNotPermittedException, ConnectException, Exception
+			@RequestParam(value = "lastName", required = false) String uri) //throws CallNotPermittedException, ConnectException, Exception
 	{
-		Callable<Object> callable = null;
-		//callable = () -> Dispatcher(req, resp, lastName, port1);
-		callable = () -> timeLimiterTest(req, resp, lastName, port1);
+		
+		Callable<Object> callable = () -> requestForwardToBackend(req, resp, uri, port1);
 
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable)
-				.withCircuitBreaker(cb)
-				.withBulkhead(bh)
-				//.withThreadPoolBulkhead(tpbh)
-				.withRateLimiter(rl)
-				.withRetry(rt)
+				.withCircuitBreaker(cb).withBulkhead(bh).withRateLimiter(rl).withRetry(rt)
 				.withFallback(Exception.class, throwable -> {
 					logger.trace("inside fallback");
 					try {
-						return timeLimiterTest(req, resp, lastName, port2);
-						//return Dispatcher(req, resp, lastName, port2);
-					} catch (ConnectException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-						return throwable;
+						return requestForwardToBackend(req, resp, uri, port2);
 					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+						logger.trace("error occurred inside fallback");
+						//e.printStackTrace();
 						return throwable;
 					}
 				})
 				.decorate();
-		//Try<Object> fallbackTest = Try.ofCallable(decoratedCallable).recover(f);
 
 
 		Callable<Object> decoratedCallable = Decorators.ofCallable(callable).withCircuitBreaker(cb).withBulkhead(bh)
@@ -164,33 +150,13 @@ public class ConnectionController {
 		return result;
 	}
 
-	//@GetMapping("/oups")
-	private String timeLimiterTest(HttpServletRequest req, HttpServletResponse resp, String lastName, int port) throws Exception {
+	//this is where the time limiter is
+	private String requestForwardToBackend(HttpServletRequest req, HttpServletResponse resp, String uri, int port) throws Exception {
 		
-//		CompletableFuture<String> completableFuture = new CompletableFuture<>();
-//		completableFuture.complete("test");
-//		completableFuture = CompletableFuture.supplyAsync(supplier).exceptionally(exception -> "send help");
-
 		//make supplier object that accesses dispatcher
-//		Supplier<String> mostBasicSupplier = () -> testDispatcher("most basic supplier test");
-//		Supplier<String> supplierTest = ThrowingConsumerWrapper.wrapFunction( () -> testDispatcher("supplier test"));
-//		logger.trace("supplier contents: " + supplierTest.get());
-		Supplier<String> supplier = ThrowingConsumerWrapper.wrapFunction( () -> Dispatcher(req, resp, lastName, port) );
-				
+		Supplier<String> supplier = ThrowingConsumerWrapper.wrapFunction( () -> Dispatcher(req, resp, uri, port) );
 		//wrap supplier in future
 		Supplier<CompletableFuture<String>> supplierF = () -> CompletableFuture.supplyAsync(supplier);
-		
-//		String futureTest = completableFuture.get();
-//		
-//		logger.trace("hi the future test shows " + futureTest);
-		
-		//create time limiter object
-		//TimeLimiter timeLimiter = TimeLimiter.of(Duration.ofSeconds(1));
-//		
-//		Callable<String> callable = () -> Dispatcher(req, resp, lastName, port1);
-//		Supplier<CompletableFuture> supplier = () -> Dispatcher(req, resp, lastName, port1);
-//
-		
 		//create result object with default result
 		String result = "default time limiter result";
 		//decorate a supplier with a time limiter
@@ -198,22 +164,26 @@ public class ConnectionController {
 		//assign result to result object
 		result = decoratedSupplier.call();
 		logger.trace("result from time limiter: " + result);
-		
 		return result;
+		
 	}
 	
-//	public String testDispatcher(String testString) {
-//		return testString;
+//	private String decorateCache(HttpServletRequest req, HttpServletResponse resp, String uri, int port) {
+//		Supplier<String> supplier = ThrowingConsumerWrapper.wrapFunction( () -> Dispatcher(req, resp, uri, port) );
+//		
+//		Supplier<String> decoratedSupplier = Decorators.ofSupplier(supplier)
+//				.withCache(cacheInstance)
+//				.decorate();
 //	}
 	
-	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String lastName, int port)
+	private String Dispatcher(HttpServletRequest req, HttpServletResponse resp, String uri, int port)
 			throws ConnectException {
 
 		String result = null;
 		if (req.getRequestURL().toString().contains(".png")) {
 			result = graphics(req, resp, Integer.toString(port));
 		} else {
-			result = makeConnection(req, resp, Integer.toString(port), lastName);
+			result = makeConnection(req, resp, Integer.toString(port), uri);
 		}
 		if (result == null) {
 			throw new ConnectException();
@@ -224,19 +194,18 @@ public class ConnectionController {
 	}
 
 	// accesses the other application
-	private String makeConnection(HttpServletRequest req, HttpServletResponse resp, String port, String lastName) {
+	private String makeConnection(HttpServletRequest req, HttpServletResponse resp, String port, String uri) {
 		logger.trace(port);
 
 		HttpGet request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port));
-		if (lastName != null) {
-			request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port) + "?LastName=" + lastName);
+		if (uri != null) {
+			request = new HttpGet(req.getRequestURL().toString().replaceFirst("8081", port) + "?LastName=" + uri);
 		}
 		
 		try (CloseableHttpResponse response = httpClient.execute(request)) {
 
 			// Get HttpResponse Status
 			logger.trace(response.getStatusLine().toString());
-			//System.out.println(1);
 			HttpEntity entity = response.getEntity();
 			Header headers = entity.getContentType();
 			logger.trace(headers);
