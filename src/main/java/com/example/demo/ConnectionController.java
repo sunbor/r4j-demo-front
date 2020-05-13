@@ -78,8 +78,8 @@ public class ConnectionController {
 	@Autowired
 	TimeLimiter tl;
 	
-	@Autowired
-	Cache<Long, String> cacheInstance;
+//	@Autowired
+//	Cache<Long, String> cacheInstance;
 
 	public ModelAndView redirectWithUsingForwardPrefix(ModelMap model) {
 		model.addAttribute("attribute", "forwardWithForwardPrefix");
@@ -100,7 +100,8 @@ public class ConnectionController {
 					try {
 						return requestForwardToBackend(req, resp, uri, port2);
 					} catch (Exception e) {
-						e.printStackTrace();
+						logger.trace("error occurred inside fallback");
+						//e.printStackTrace();
 						return throwable;
 					}
 				})
